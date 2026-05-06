@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prime Store Kasa v8</title>
+    <title>Prime Store Kasa v9</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background: #000; color: white; overflow: hidden; }
@@ -14,66 +14,51 @@
         .laser { width: 100%; height: 3px; background: red; position: absolute; top: 0; animation: move 2s linear infinite; }
         @keyframes move { 0% {top:0} 50% {top:100%} 100% {top:0} }
         .footer { background: white; color: black; padding: 20px; border-radius: 25px 25px 0 0; pointer-events: auto; max-height: 50%; overflow-y: auto; }
-        .product-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; font-weight: bold; }
-        .remove-btn { background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-        .total-row { font-size: 24px; font-weight: 900; display: flex; justify-content: space-between; margin: 15px 0; color: #1a73e8; border-top: 2px solid #eee; padding-top: 10px; }
-        button.main { background: #1a73e8; color: white; border: none; padding: 18px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 18px; cursor: pointer; }
-        #debug-info { color: #ff0; font-size: 10px; position: absolute; top: 80px; width: 100%; text-align: center; pointer-events: none; }
+        .product-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold; }
+        .remove-btn { background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 8px; }
+        .total-row { font-size: 24px; font-weight: 900; display: flex; justify-content: space-between; margin: 10px 0; color: #1a73e8; }
+        button.main { background: #1a73e8; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .cam-btn { background: #ff9800; color: white; border: none; padding: 10px; border-radius: 8px; margin-top: 5px; width: 100%; font-weight: bold; pointer-events: auto; }
     </style>
 </head>
 <body>
 
 <video id="video" autoplay playsinline></video>
-<div id="debug-info">Kamera aranıyor...</div>
 
 <div class="ui">
     <div class="header">
         <h2 style="margin:0;">PRIME STORE 🏪</h2>
-        <div id="status" style="color:#00ff00; font-weight: bold;">DÜKKAN AÇIK ✅</div>
+        <button id="start-btn" class="cam-btn" onclick="initKamera()">📷 KAMERAYI BAŞLAT (TIKLA)</button>
     </div>
+
     <div class="scan-box"><div class="laser"></div></div>
+
     <div class="footer">
-        <div id="cart-list"><p style="text-align:center; color:#999;">Barkod bekleniyor...</p></div>
+        <div id="cart-list"><p style="text-align:center; color:#999;">Önce kamerayı başlatın...</p></div>
         <div class="total-row"><span>TOPLAM:</span><span id="total-price">0 TL</span></div>
         <button class="main" onclick="window.print()">FİŞİ YAZDIR (PIRANHA)</button>
     </div>
 </div>
 
 <script>
-    const urunler = {
-        "20141985": { ad: "Özel Ürün", fiyat: 100 },
-        "123": { ad: "Sakız", fiyat: 10 }
-    };
-
+    const urunler = { "20141985": { ad: "Özel Ürün", fiyat: 100 } };
     let sepet = [];
     const codeReader = new ZXing.BrowserMultiFormatReader();
-    let isLocked = false;
 
     async function initKamera() {
-        const debug = document.getElementById('debug-info');
         try {
-            // Kameraları listele
-            const devices = await codeReader.listVideoInputDevices();
-            debug.innerText = "Kamera bulundu: " + devices.length;
-
-            if (devices.length === 0) {
-                debug.innerText = "HATA: Kamera algılanamadı!";
-                return;
-            }
-
-            // Arka kamerayı seçmeye çalış
-            const backCamera = devices.find(device => device.label.toLowerCase().includes('back')) || devices[0];
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            document.getElementById('video').srcObject = stream;
+            document.getElementById('start-btn').style.display = "none";
             
-            codeReader.decodeFromVideoDevice(backCamera.deviceId, 'video', (result) => {
-                if (result && !isLocked) {
-                    isLocked = true;
+            codeReader.decodeFromVideoDevice(null, 'video', (result) => {
+                if (result) {
                     const kod = result.text.trim();
                     if (urunler[kod]) {
-                        if (navigator.vibrate) navigator.vibrate(100);
                         sepet.push({ ...urunler[kod], cartId: Date.now() });
                         renderCart();
                     } else {
-                        const ad = prompt("Bilinmeyen Ürün (" + kod + ")\nİsim:");
+                        const ad = prompt("Yeni Barkod (" + kod + ")\nİsim:");
                         const fiyat = prompt("Fiyat:");
                         if (ad && fiyat) {
                             urunler[kod] = { ad: ad, fiyat: parseInt(fiyat) };
@@ -81,37 +66,28 @@
                             renderCart();
                         }
                     }
-                    setTimeout(() => { isLocked = false; }, 2000);
                 }
             });
-            debug.innerText = "Kamera Aktif!";
         } catch (err) {
-            debug.innerText = "KRİTİK HATA: " + err.message;
-            console.error(err);
+            alert("Kamera hatası: " + err.message + "\nLütfen ayarlardan Chrome'a kamera izni ver.");
         }
     }
 
-    function removeItem(cartId) {
-        sepet = sepet.filter(item => item.cartId !== cartId);
+    function removeItem(id) {
+        sepet = sepet.filter(i => i.cartId !== id);
         renderCart();
     }
 
     function renderCart() {
         const list = document.getElementById('cart-list');
-        const totalDisp = document.getElementById('total-price');
         list.innerHTML = "";
         let total = 0;
-        if (sepet.length === 0) {
-            list.innerHTML = '<p style="text-align:center; color:#999;">Barkod bekleniyor...</p>';
-        }
         sepet.forEach(item => {
-            list.innerHTML += `<div class="product-item"><span>${item.ad}</span><span>${item.fiyat} TL <button class="remove-btn" onclick="removeItem(${item.cartId})">SİL</button></span></div>`;
+            list.innerHTML += `<div class="product-item"><span>${item.ad}</span><span>${item.fiyat} TL <button class="remove-btn" onclick="removeItem(${item.cartId})">X</button></span></div>`;
             total += item.fiyat;
         });
-        totalDisp.innerText = total + " TL";
+        document.getElementById('total-price').innerText = total + " TL";
     }
-
-    window.onload = initKamera;
 </script>
 </body>
 </html>
