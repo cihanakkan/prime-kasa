@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prime Store Kasa v6</title>
+    <title>Prime Store Kasa v7</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background: #000; color: white; overflow: hidden; }
@@ -15,9 +15,10 @@
         @keyframes move { 0% {top:0} 50% {top:100%} 100% {top:0} }
         .footer { background: white; color: black; padding: 20px; border-radius: 25px 25px 0 0; pointer-events: auto; max-height: 50%; overflow-y: auto; }
         .product-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; font-weight: bold; }
-        .remove-btn { background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 8px; }
+        .remove-btn { background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 14px; cursor: pointer; }
         .total-row { font-size: 24px; font-weight: 900; display: flex; justify-content: space-between; margin: 15px 0; color: #1a73e8; border-top: 2px solid #eee; padding-top: 10px; }
-        button.main { background: #1a73e8; color: white; border: none; padding: 18px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 18px; }
+        button.main { background: #1a73e8; color: white; border: none; padding: 18px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 18px; cursor: pointer; }
+        .empty-msg { text-align: center; color: #999; font-style: italic; }
     </style>
 </head>
 <body>
@@ -27,18 +28,19 @@
 <div class="ui">
     <div class="header">
         <h2 style="margin:0;">PRIME STORE 🏪</h2>
-        <div id="status" style="color:#00ff00;">DÜKKAN AÇIK ✅</div>
+        <div id="status" style="color:#00ff00; font-weight: bold;">DÜKKAN AÇIK ✅</div>
     </div>
     <div class="scan-box"><div class="laser"></div></div>
     <div class="footer">
-        <div id="cart-list"><p style="text-align:center; color:#999;">Barkod bekleniyor...</p></div>
+        <div id="cart-list"><p class="empty-msg">Barkod bekleniyor...</p></div>
         <div class="total-row"><span>TOPLAM:</span><span id="total-price">0 TL</span></div>
-        <button class="main" onclick="window.print()">FİŞİ YAZDIR</button>
+        <button class="main" onclick="window.print()">FİŞİ YAZDIR (PIRANHA)</button>
     </div>
 </div>
 
 <script>
-    // --- ÜRÜN LİSTEN (O OKUDUĞUN BARKODU BURAYA EKLEDİM) ---
+    // --- ÜRÜN LİSTEN ---
+    // Az önce okuduğun barkodu (20141985) buraya ekledim
     const urunler = {
         "20141985": { ad: "Özel Ürün", fiyat: 100 },
         "123": { ad: "Sakız", fiyat: 10 },
@@ -58,26 +60,30 @@
                     
                     if (urunler[kod]) {
                         if (navigator.vibrate) navigator.vibrate(100);
-                        sepet.push({ ...urunler[kod], id: Date.now() });
+                        // Ürünü sepete benzersiz bir ID ile ekle (silme işlemi için lazım)
+                        sepet.push({ ...urunler[kod], cartId: Date.now() });
                         renderCart();
                     } else {
-                        // Bilinmeyen bir barkodsa sana sorsun
-                        const ad = prompt("Yeni Barkod (" + kod + ")\nÜrün Adı:");
-                        const fiyat = prompt("Fiyatı:");
+                        // Bilinmeyen bir barkodsa alert yerine prompt ile sor
+                        if (navigator.vibrate) navigator.vibrate(200);
+                        const ad = prompt("Bilinmeyen Ürün (" + kod + ")\nİsmi ne olsun?");
+                        const fiyat = prompt("Fiyatı ne kadar olsun?");
                         if (ad && fiyat) {
                             urunler[kod] = { ad: ad, fiyat: parseInt(fiyat) };
-                            sepet.push({ ...urunler[kod], id: Date.now() });
+                            sepet.push({ ...urunler[kod], cartId: Date.now() });
                             renderCart();
                         }
                     }
+                    // 2 saniye bekle ki aynı şeyi peş peşe 50 kere eklemesin
                     setTimeout(() => { isLocked = false; }, 2000);
                 }
             });
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error("Kamera hatası:", err); }
     }
 
-    function removeItem(id) {
-        sepet = sepet.filter(item => item.id !== id);
+    // Ürünü sepetten çıkarma fonksiyonu
+    function removeItem(cartId) {
+        sepet = sepet.filter(item => item.cartId !== cartId);
         renderCart();
     }
 
@@ -86,8 +92,17 @@
         const totalDisp = document.getElementById('total-price');
         list.innerHTML = "";
         let total = 0;
+
+        if (sepet.length === 0) {
+            list.innerHTML = '<p class="empty-msg">Barkod bekleniyor...</p>';
+        }
+
         sepet.forEach(item => {
-            list.innerHTML += `<div class="product-item"><span>${item.ad}</span><span>${item.fiyat} TL <button class="remove-btn" onclick="removeItem(${item.id})">SİL</button></span></div>`;
+            list.innerHTML += `
+                <div class="product-item">
+                    <span>${item.ad}</span>
+                    <span>${item.fiyat} TL <button class="remove-btn" onclick="removeItem(${item.cartId})">SİL</button></span>
+                </div>`;
             total += item.fiyat;
         });
         totalDisp.innerText = total + " TL";
