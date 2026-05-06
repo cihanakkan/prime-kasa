@@ -3,70 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prime Store Kasa - Kesin Çözüm</title>
+    <title>Prime Store Kasa v6</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
-        body { margin: 0; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
-        #video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
-        .header { background: rgba(0,0,0,0.8); padding: 20px; text-align: center; pointer-events: auto; border-bottom: 2px solid #1a73e8; }
-        .scan-area { width: 80%; height: 200px; border: 2px solid #00ff00; margin: auto; position: relative; border-radius: 10px; }
-        .laser { width: 100%; height: 2px; background: red; position: absolute; top: 50%; box-shadow: 0 0 10px red; }
-        .footer { background: white; color: black; padding: 20px; border-radius: 20px 20px 0 0; pointer-events: auto; max-height: 40%; overflow-y: auto; }
-        .total { font-size: 24px; font-weight: bold; display: flex; justify-content: space-between; margin: 10px 0; color: #1a73e8; }
-        .btn { background: #1a73e8; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 18px; }
-        #error-msg { color: red; font-size: 14px; background: white; padding: 5px; display: none; pointer-events: auto; }
+        body { font-family: sans-serif; margin: 0; background: #000; color: white; overflow: hidden; }
+        #video { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; }
+        .ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        .header { background: rgba(0,0,0,0.85); padding: 15px; text-align: center; pointer-events: auto; border-bottom: 3px solid #1a73e8; }
+        .scan-box { width: 80%; height: 180px; border: 3px solid #00ff00; margin: auto; position: relative; border-radius: 15px; box-shadow: 0 0 20px rgba(0,255,0,0.5); }
+        .laser { width: 100%; height: 3px; background: red; position: absolute; top: 0; animation: move 2s linear infinite; }
+        @keyframes move { 0% {top:0} 50% {top:100%} 100% {top:0} }
+        .footer { background: white; color: black; padding: 20px; border-radius: 25px 25px 0 0; pointer-events: auto; max-height: 50%; overflow-y: auto; }
+        .product-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; font-weight: bold; }
+        .remove-btn { background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 8px; }
+        .total-row { font-size: 24px; font-weight: 900; display: flex; justify-content: space-between; margin: 15px 0; color: #1a73e8; border-top: 2px solid #eee; padding-top: 10px; }
+        button.main { background: #1a73e8; color: white; border: none; padding: 18px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 18px; }
     </style>
 </head>
 <body>
 
 <video id="video" autoplay playsinline></video>
 
-<div class="overlay">
+<div class="ui">
     <div class="header">
         <h2 style="margin:0;">PRIME STORE 🏪</h2>
-        <div id="status">Kamera Bağlanıyor...</div>
-        <div id="error-msg"></div>
+        <div id="status" style="color:#00ff00;">DÜKKAN AÇIK ✅</div>
     </div>
-
-    <div class="scan-area"><div class="laser"></div></div>
-
+    <div class="scan-box"><div class="laser"></div></div>
     <div class="footer">
-        <div id="cart">Ürün bekleniyor...</div>
-        <div class="total"><span>TOPLAM:</span><span id="total-price">0 TL</span></div>
-        <button class="btn" onclick="location.reload()">KAMERAYI SIFIRLA</button>
+        <div id="cart-list"><p style="text-align:center; color:#999;">Barkod bekleniyor...</p></div>
+        <div class="total-row"><span>TOPLAM:</span><span id="total-price">0 TL</span></div>
+        <button class="main" onclick="window.print()">FİŞİ YAZDIR</button>
     </div>
 </div>
 
 <script>
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    let sepet = [];
+    // --- ÜRÜN LİSTEN (O OKUDUĞUN BARKODU BURAYA EKLEDİM) ---
+    const urunler = {
+        "20141985": { ad: "Özel Ürün", fiyat: 100 },
+        "123": { ad: "Sakız", fiyat: 10 },
+        "101": { ad: "Hot Wheels", fiyat: 150 }
+    };
 
-    async function baslat() {
+    let sepet = [];
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    let isLocked = false;
+
+    async function start() {
         try {
-            // Kameraları listele ve arka kamerayı zorla
-            const cihazlar = await codeReader.listVideoInputDevices();
-            const arkaKamera = cihazlar.find(d => d.label.toLowerCase().includes('back')) || cihazlar[0];
-            
-            codeReader.decodeFromVideoDevice(arkaKamera.deviceId, 'video', (result, err) => {
-                if (result) {
-                    if (navigator.vibrate) navigator.vibrate(100);
-                    // Barkod okununca yapılacaklar
-                    const kod = result.text;
-                    alert("OKUNDU: " + kod);
+            codeReader.decodeFromVideoDevice({ facingMode: "environment" }, 'video', (result) => {
+                if (result && !isLocked) {
+                    isLocked = true;
+                    const kod = result.text.trim();
+                    
+                    if (urunler[kod]) {
+                        if (navigator.vibrate) navigator.vibrate(100);
+                        sepet.push({ ...urunler[kod], id: Date.now() });
+                        renderCart();
+                    } else {
+                        // Bilinmeyen bir barkodsa sana sorsun
+                        const ad = prompt("Yeni Barkod (" + kod + ")\nÜrün Adı:");
+                        const fiyat = prompt("Fiyatı:");
+                        if (ad && fiyat) {
+                            urunler[kod] = { ad: ad, fiyat: parseInt(fiyat) };
+                            sepet.push({ ...urunler[kod], id: Date.now() });
+                            renderCart();
+                        }
+                    }
+                    setTimeout(() => { isLocked = false; }, 2000);
                 }
             });
-            document.getElementById('status').innerText = "SİSTEM AKTİF ✅";
-        } catch (err) {
-            console.error(arkaKamera);
-            document.getElementById('error-msg').style.display = "block";
-            document.getElementById('error-msg').innerText = "HATA: " + err.message;
-            document.getElementById('status').innerText = "Kamera Başarısız ❌";
-        }
+        } catch (err) { console.error(err); }
     }
 
-    window.onload = baslat;
-</script>
+    function removeItem(id) {
+        sepet = sepet.filter(item => item.id !== id);
+        renderCart();
+    }
 
+    function renderCart() {
+        const list = document.getElementById('cart-list');
+        const totalDisp = document.getElementById('total-price');
+        list.innerHTML = "";
+        let total = 0;
+        sepet.forEach(item => {
+            list.innerHTML += `<div class="product-item"><span>${item.ad}</span><span>${item.fiyat} TL <button class="remove-btn" onclick="removeItem(${item.id})">SİL</button></span></div>`;
+            total += item.fiyat;
+        });
+        totalDisp.innerText = total + " TL";
+    }
+
+    window.onload = start;
+</script>
 </body>
 </html>
