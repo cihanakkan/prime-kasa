@@ -3,53 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prime Store Kasa v10</title>
+    <title>Prime Store Kasa v11</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* --- EKRAN TASARIMI --- */
-        body { font-family: sans-serif; margin: 0; background: #000; color: white; overflow: hidden; }
-        #video { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; background: #000; }
-        .ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
-        .header { background: rgba(0,0,0,0.85); padding: 15px; text-align: center; pointer-events: auto; border-bottom: 3px solid #1a73e8; }
-        .scan-box { width: 80%; height: 180px; border: 3px solid #00ff00; margin: auto; position: relative; border-radius: 15px; box-shadow: 0 0 20px rgba(0,255,0,0.5); }
-        .laser { width: 100%; height: 3px; background: red; position: absolute; top: 0; animation: move 2s linear infinite; }
+        body { font-family: 'Courier New', Courier, monospace; margin: 0; background: #000; color: white; overflow: hidden; }
+        #video { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; }
+        
+        /* Arayüz */
+        .ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        .header { background: rgba(0,0,0,0.9); padding: 15px; text-align: center; pointer-events: auto; border-bottom: 3px solid #1a73e8; }
+        .scan-box { width: 70%; height: 150px; border: 3px solid #00ff00; margin: auto; position: relative; border-radius: 15px; }
+        .laser { width: 100%; height: 2px; background: red; position: absolute; top: 0; animation: move 2s linear infinite; }
         @keyframes move { 0% {top:0} 50% {top:100%} 100% {top:0} }
-        .footer { background: white; color: black; padding: 20px; border-radius: 25px 25px 0 0; pointer-events: auto; max-height: 50%; overflow-y: auto; }
-        .product-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold; }
-        .remove-btn { background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; }
-        .total-row { font-size: 24px; font-weight: 900; display: flex; justify-content: space-between; margin: 15px 0; color: #1a73e8; border-top: 2px solid #333; padding-top: 10px; }
-        button.main { background: #1a73e8; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 16px; cursor: pointer; }
-        .cam-btn { background: #ff9800; color: white; border: none; padding: 10px; border-radius: 8px; margin-top: 5px; width: 100%; font-weight: bold; pointer-events: auto; }
+        
+        .footer { background: white; color: black; padding: 20px; border-radius: 25px 25px 0 0; pointer-events: auto; max-height: 40%; overflow-y: auto; }
+        .total-row { font-size: 22px; font-weight: bold; display: flex; justify-content: space-between; margin: 10px 0; border-top: 2px solid #eee; padding-top: 10px; }
+        .btn-group { display: flex; gap: 10px; }
+        button { flex: 1; padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-blue { background: #1a73e8; color: white; }
+        .btn-orange { background: #ff9800; color: white; }
 
-        /* --- FİŞ (YAZDIRMA) TASARIMI --- */
-        @media print {
-            body { background: white !important; color: black !important; overflow: visible; }
-            #video, .header, .scan-box, .remove-btn, .main, .cam-btn { display: none !important; } /* Gereksiz her şeyi gizle */
-            .ui { position: relative; pointer-events: auto; }
-            .footer { position: absolute; top: 0; width: 100%; padding: 0; border: none; }
-            .product-item { border-bottom: 1pt dashed #000; padding: 5pt 0; font-size: 12pt; }
-            .total-row { border-top: 2pt solid #000; color: black; font-size: 16pt; margin-top: 10pt; }
-            .empty-msg { display: none; }
-            @page { margin: 0; size: auto; }
+        /* Fiş Görünümü (Gizli) */
+        #fis-ekrani { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #555; overflow-y: auto; z-index: 100; pointer-events: auto; 
+            padding: 20px; box-sizing: border-box;
         }
+        .fis-kagit { 
+            background: white; color: black; width: 100%; max-width: 300px; margin: 0 auto; 
+            padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.5); text-align: center;
+        }
+        .fis-item { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 5px 0; }
+        .fis-footer { margin-top: 20px; border-top: 2px solid black; padding-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <video id="video" autoplay playsinline></video>
 
-<div class="ui">
+<div class="ui-container" id="ana-ekran">
     <div class="header">
         <h2 style="margin:0;">PRIME STORE 🏪</h2>
-        <button id="start-btn" class="cam-btn" onclick="initKamera()">📷 KAMERAYI BAŞLAT</button>
+        <button class="btn-orange" id="cam-btn" onclick="initKamera()" style="pointer-events: auto;">📷 KAMERAYI AÇ</button>
     </div>
-
     <div class="scan-box"><div class="laser"></div></div>
-
     <div class="footer">
-        <div id="cart-list"><p class="empty-msg" style="text-align:center; color:#999;">Sepet Boş...</p></div>
-        <div class="total-row"><span>TOPLAM:</span><span id="total-price">0 TL</span></div>
-        <button class="main" onclick="window.print()">FİŞİ YAZDIR (PIRANHA)</button>
+        <div id="sepet-liste" style="margin-bottom: 10px;">Sepet boş...</div>
+        <div class="total-row"><span>TOPLAM:</span><span id="toplam-tutar">0 TL</span></div>
+        <div class="btn-group">
+            <button class="btn-blue" onclick="fisGoster()">📄 FİŞİ GÖR</button>
+            <button style="background:#ff4444; color:white;" onclick="location.reload()">🗑 SIFIRLA</button>
+        </div>
+    </div>
+</div>
+
+<div id="fis-ekrani">
+    <div class="fis-kagit" id="yazdirilacak-fis">
+        <h3>PRIME STORE</h3>
+        <p>Pendik / İstanbul</p>
+        <p>**************************</p>
+        <div id="fis-icerik"></div>
+        <div class="fis-footer">
+            <div style="display:flex; justify-content:space-between; font-size: 20px;">
+                <span>TOPLAM:</span><span id="fis-toplam">0 TL</span>
+            </div>
+        </div>
+        <p style="margin-top:20px;">Teşekkür Ederiz!</p>
+        <p id="tarih-saat" style="font-size: 10px;"></p>
+    </div>
+    <div style="max-width:300px; margin: 20px auto; display:flex; gap:10px;">
+        <button class="btn-blue" onclick="fisIndir()">📥 İNDİR (PDF)</button>
+        <button class="btn-orange" onclick="fisKapat()">❌ KAPAT</button>
     </div>
 </div>
 
@@ -57,51 +82,61 @@
     const urunler = { "20141985": { ad: "Özel Ürün", fiyat: 100 } };
     let sepet = [];
     const codeReader = new ZXing.BrowserMultiFormatReader();
-    let isLocked = false;
 
     async function initKamera() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             document.getElementById('video').srcObject = stream;
-            document.getElementById('start-btn').style.display = "none";
-            
+            document.getElementById('cam-btn').style.display = "none";
             codeReader.decodeFromVideoDevice(null, 'video', (result) => {
-                if (result && !isLocked) {
-                    isLocked = true;
+                if (result) {
                     const kod = result.text.trim();
-                    if (urunler[kod]) {
+                    const urun = urunler[kod] || { ad: prompt("Ürün Adı:"), fiyat: parseInt(prompt("Fiyat:")) };
+                    if(urun.ad) {
+                        sepet.push(urun);
+                        renderSepet();
                         if (navigator.vibrate) navigator.vibrate(100);
-                        sepet.push({ ...urunler[kod], cartId: Date.now() });
-                        renderCart();
-                    } else {
-                        const ad = prompt("Yeni Barkod (" + kod + ")\nİsim:");
-                        const fiyat = prompt("Fiyat:");
-                        if (ad && fiyat) {
-                            urunler[kod] = { ad: ad, fiyat: parseInt(fiyat) };
-                            sepet.push({ ...urunler[kod], cartId: Date.now() });
-                            renderCart();
-                        }
                     }
-                    setTimeout(() => { isLocked = false; }, 2000);
                 }
             });
-        } catch (err) { alert("Kamera hatası: " + err.message); }
+        } catch (e) { alert("Kamera açılmadı!"); }
     }
 
-    function removeItem(id) {
-        sepet = sepet.filter(i => i.cartId !== id);
-        renderCart();
+    function renderSepet() {
+        const liste = document.getElementById('sepet-liste');
+        liste.innerHTML = sepet.map(i => `<div style="display:flex; justify-content:space-between;"><span>${i.ad}</span><span>${i.fiyat} TL</span></div>`).join('');
+        const toplam = sepet.reduce((a, b) => a + b.fiyat, 0);
+        document.getElementById('toplam-tutar').innerText = toplam + " TL";
     }
 
-    function renderCart() {
-        const list = document.getElementById('cart-list');
-        list.innerHTML = "";
-        let total = 0;
-        sepet.forEach(item => {
-            list.innerHTML += `<div class="product-item"><span>${item.ad}</span><span>${item.fiyat} TL <button class="remove-btn" onclick="removeItem(${item.cartId})">SİL</button></span></div>`;
-            total += item.fiyat;
-        });
-        document.getElementById('total-price').innerText = total + " TL";
+    function fisGoster() {
+        if(sepet.length === 0) return alert("Sepet boş!");
+        document.getElementById('ana-ekran').style.display = "none";
+        document.getElementById('fis-ekrani').style.display = "block";
+        
+        const icerik = document.getElementById('fis-icerik');
+        icerik.innerHTML = sepet.map(i => `<div class="fis-item"><span>${i.ad}</span><span>${i.fiyat} TL</span></div>`).join('');
+        
+        const toplam = sepet.reduce((a, b) => a + b.fiyat, 0);
+        document.getElementById('fis-toplam').innerText = toplam + " TL";
+        document.getElementById('tarih-saat').innerText = new Date().toLocaleString();
+    }
+
+    function fisKapat() {
+        document.getElementById('ana-ekran').style.display = "flex";
+        document.getElementById('fis-ekrani').style.display = "none";
+    }
+
+    function fisIndir() {
+        const element = document.getElementById('yazdirilacak-fis');
+        const opt = {
+            margin: 10,
+            filename: 'prime-store-fis.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
     }
 </script>
 </body>
