@@ -3,39 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prime Store Mobil</title>
+    <title>Prime Store Mobil Kasa</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #000; color: white; overflow: hidden; }
-        
-        /* Kamera Arka Planda Tam Ekran */
-        #video { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; }
-        
-        /* Arayüz Katmanı */
+        body { font-family: sans-serif; margin: 0; background: #000; color: white; overflow: hidden; }
+        #video { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; background: #222; }
         .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
-        
-        .header { background: rgba(0,0,0,0.6); padding: 15px; text-align: center; pointer-events: auto; }
-        .footer { background: white; color: black; padding: 20px; border-radius: 20px 20px 0 0; pointer-events: auto; max-height: 40%; overflow-y: auto; }
-        
-        .scan-box { width: 250px; height: 150px; border: 2px solid #00ff00; margin: auto; position: relative; box-shadow: 0 0 20px rgba(0,255,0,0.5); }
-        .scan-line { width: 100%; height: 2px; background: red; position: absolute; top: 0; animation: move 2s linear infinite; }
-        
-        @keyframes move { 0% {top: 0;} 100% {top: 100%;} }
-        
-        .product-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
-        .total-row { font-size: 20px; font-weight: bold; display: flex; justify-content: space-between; margin-top: 10px; color: #1a73e8; }
-        
-        button { background: #1a73e8; color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; font-weight: bold; margin-top: 10px; font-size: 16px; }
+        .header { background: rgba(0,0,0,0.8); padding: 15px; text-align: center; pointer-events: auto; }
+        .footer { background: white; color: black; padding: 20px; border-radius: 20px 20px 0 0; pointer-events: auto; max-height: 45%; overflow-y: auto; box-shadow: 0 -5px 15px rgba(0,0,0,0.3); }
+        .scan-box { width: 280px; height: 180px; border: 3px solid #00ff00; margin: auto; position: relative; box-shadow: 0 0 30px rgba(0,255,0,0.4); border-radius: 10px; }
+        .scan-line { width: 100%; height: 3px; background: #ff0000; position: absolute; top: 0; animation: move 2.5s linear infinite; box-shadow: 0 0 10px red; }
+        @keyframes move { 0% {top: 0%;} 50% {top: 100%;} 100% {top: 0%;} }
+        .product-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold; }
+        .total-row { font-size: 22px; font-weight: 900; display: flex; justify-content: space-between; margin: 15px 0; color: #d93025; border-top: 2px solid #eee; padding-top: 10px; }
+        button { background: #1a73e8; color: white; border: none; padding: 18px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 18px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .reset-btn { background: #f1f3f4; color: #3c4043; font-size: 12px; padding: 8px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-<video id="video"></video>
+<video id="video" autoplay playsinline></video>
 
 <div class="ui-layer">
     <div class="header">
-        <h2 style="margin:0;">PRIME STORE 🏪</h2>
-        <small id="status">Kamera Hazırlanıyor...</small>
+        <h2 style="margin:0; letter-spacing: 2px;">PRIME STORE 🏪</h2>
+        <small id="status" style="color: #00ff00;">KAMERA AKTİF OLUYOR...</small>
     </div>
 
     <div class="scan-box">
@@ -44,45 +36,64 @@
 
     <div class="footer">
         <div id="cart-list">
-            <p style="text-align:center; color:#888;">Henüz ürün taranmadı...</p>
+            <p style="text-align:center; color:#999; font-style: italic;">Ürün barkodunu okutun...</p>
         </div>
         <div class="total-row">
             <span>TOPLAM:</span>
             <span id="total-price">0 TL</span>
         </div>
         <button onclick="window.print()">FİŞİ YAZDIR</button>
-        <button onclick="clearCart()" style="background:#eee; color:#333; font-size:12px; padding:5px; margin-top:5px;">Sepeti Boşalt</button>
+        <div style="text-align: center;">
+            <button class="reset-btn" onclick="clearCart()">SEPETİ TEMİZLE</button>
+        </div>
     </div>
 </div>
 
 <script>
-    // ÜRÜN VERİTABANI
+    // --- ÜRÜN LİSTEN (BURAYI İSTEDİĞİN GİBİ DÜZENLE) ---
     const urunler = {
         "01": { ad: "Sakız", fiyat: 5 },
-        "02": { ad: "Hot Wheels", fiyat: 120 },
-        "03": { ad: "İçecek", fiyat: 25 }
+        "02": { ad: "Hot Wheels Araba", fiyat: 150 },
+        "03": { ad: "Red Bull", fiyat: 45 },
+        "12345678": { ad: "Deneme Ürünü", fiyat: 100 }
     };
 
     let sepet = [];
     const codeReader = new ZXing.BrowserMultiFormatReader();
     let isScanning = true;
 
-    // Kamerayı Başlat (Arka Kamera)
-    codeReader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
-        if (result && isScanning) {
-            isScanning = false; // Aynı ürünü defalarca okumasın
-            const kod = result.text;
+    // Kamerayı Başlatma Fonksiyonu
+    async function startCamera() {
+        try {
+            const videoInputDevices = await codeReader.listVideoInputDevices();
+            // Arka kamerayı bulmaya çalış
+            const selectedDeviceId = videoInputDevices.length > 1 ? videoInputDevices[1].deviceId : videoInputDevices[0].deviceId;
             
-            if (urunler[kod]) {
-                if (navigator.vibrate) navigator.vibrate(100); // Telefonu titret
-                addToCart(urunler[kod]);
-            }
+            console.log("Kamera Başlatılıyor...");
             
-            // 2 saniye sonra tekrar taramaya hazır ol
-            setTimeout(() => { isScanning = true; }, 2000);
+            codeReader.decodeFromVideoDevice({ facingMode: "environment" }, 'video', (result, err) => {
+                if (result && isScanning) {
+                    isScanning = false;
+                    const kod = result.text;
+                    
+                    if (urunler[kod]) {
+                        if (navigator.vibrate) navigator.vibrate(150);
+                        addToCart(urunler[kod]);
+                    } else {
+                        console.log("Bilinmeyen barkod: " + kod);
+                    }
+                    
+                    // 2 saniye bekleme süresi (üst üste okumasın)
+                    setTimeout(() => { isScanning = true; }, 2000);
+                }
+            });
+            document.getElementById('status').innerText = "TARAMA HAZIR";
+        } catch (err) {
+            console.error(err);
+            document.getElementById('status').innerText = "HATA: Kamera İzni Verin!";
+            document.getElementById('status').style.color = "red";
         }
-        if (err) document.getElementById('status').innerText = "Tarama Aktif...";
-    });
+    }
 
     function addToCart(urun) {
         sepet.push(urun);
@@ -95,6 +106,10 @@
         list.innerHTML = "";
         let total = 0;
 
+        if (sepet.length === 0) {
+            list.innerHTML = '<p style="text-align:center; color:#999; font-style: italic;">Ürün barkodunu okutun...</p>';
+        }
+
         sepet.forEach(item => {
             list.innerHTML += `<div class="product-item"><span>${item.ad}</span><span>${item.fiyat} TL</span></div>`;
             total += item.fiyat;
@@ -104,9 +119,14 @@
     }
 
     function clearCart() {
-        sepet = [];
-        renderCart();
+        if(confirm("Sepet boşaltılsın mı?")) {
+            sepet = [];
+            renderCart();
+        }
     }
+
+    // Sayfa açılınca kamerayı başlat
+    window.onload = startCamera;
 </script>
 
 </body>
